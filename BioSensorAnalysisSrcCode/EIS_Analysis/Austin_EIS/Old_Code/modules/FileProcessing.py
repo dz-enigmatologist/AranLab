@@ -2,10 +2,10 @@ import os
 import pandas as pd
 from openpyxl import load_workbook
 import Folder_n_File_Utilities as fnf
-import Anal_CSV as ac
+import BioSensorAnalysisSrcCode.EIS_Analysis.Austin_EIS.modules.Analysis_CSV as ac
 import plotting as pp
 import CopyOriginalData as COD
-import Anal_xlsx as ax
+import BioSensorAnalysisSrcCode.EIS_Analysis.Austin_EIS.modules.Analysis_xlsx as ax
 
 def process_csv_file(file_path, writer, plot_data=False):
     """

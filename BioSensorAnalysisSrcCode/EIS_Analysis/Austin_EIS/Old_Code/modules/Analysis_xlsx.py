@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import Anal_CSV as ac
+import BioSensorAnalysisSrcCode.EIS_Analysis.Austin_EIS.modules.Analysis_CSV as ac
 
 def split_cycles_from_frequency(frequency, start_val=100, end_val=200000, tol_start=20, tol_end=10000):
     """
