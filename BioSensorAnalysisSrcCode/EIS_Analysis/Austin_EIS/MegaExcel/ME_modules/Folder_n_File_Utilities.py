@@ -51,39 +51,32 @@ def log_and_print(message, log_file):
     with open(log_file, 'a', encoding='utf-8') as f:
         f.write(message + '\n')
 
-def find_valid_chips(master_folder):
+def find_valid_chips(master_folder, excel_only=False):
     """
     Recursively searches the master folder for files.
-    
-    It gathers:
-      - CSV files that include one of the keywords: "cyst", "dna", "water", "buffer"
-      - Excel workbooks (".xlsx") that include the keyword "cas"
-      
-    All filenames must include a chip number (e.g. "Chip26").
-    
-    A valid chip must:
-    1. Have four CSV files (one per keyword) and one Excel workbook
-    2. Have a chip number in the approved list
-    Returns a dictionary mapping chip numbers (as strings) to a dictionary with keys:
-      "cyst", "dna", "water", "buffer", and "cas".
+
+    Modes:
+    - Full: Looks for CSVs and Excel files.
+    - Excel-only: Only gathers Excel files with 'cas' and chip number.
+
+    Returns:
+        dict: Mapping chip numbers to file paths per data type.
     """
-    # Approved chip numbers
-    valid_chip_numbers = {'21', '22', '23', '26', '27', '32', '33', '35', '36', '37', 
-                         '39', '40', '41', '43', '44', '45', '46', '47', '48', '52', 
-                         '53', '54', '55', '56', '57', '59'}
-    
+    valid_chip_numbers = {'21', '22', '23', '26', '27', '32', '33', '35', '36', '37',
+                          '39', '40', '41', '43', '44', '45', '46', '47', '48', '52',
+                          '53', '54', '55', '56', '57', '59'}
+
     chip_data = {}
     chip_pattern = re.compile(r'(?i)chip(\d+)')
-    
-    # Define required keywords for each file type
+
     required_patterns = {
         "water": ["water"],
         "buffer": ["buffer"],
         "dna": ["dna"],
-        "cyst": ["cyst"],  # you can adjust as needed (e.g., "cystenine")
+        "cyst": ["cyst"],
         "cas": ["cas"]
     }
-    
+
     for root, dirs, files in os.walk(master_folder):
         for f in files:
             f_lower = f.lower()
@@ -91,22 +84,19 @@ def find_valid_chips(master_folder):
             match = chip_pattern.search(f_lower)
             if match:
                 chip_num = match.group(1)
-                # Only process if chip number is in approved list
                 if chip_num in valid_chip_numbers:
                     entry = chip_data.setdefault(chip_num, {})
-                    for key, keywords in required_patterns.items():
-                        if key != "cas":
-                            if f_lower.endswith('.csv') and all(kw in f_lower for kw in keywords):
+                    if f_lower.endswith('.xlsx') and all(kw in f_lower for kw in required_patterns["cas"]):
+                        entry["cas"] = full_path
+                    if not excel_only:
+                        for key in ("water", "buffer", "dna", "cyst"):
+                            if f_lower.endswith('.csv') and all(kw in f_lower for kw in required_patterns[key]):
                                 entry[key] = full_path
-                        else:
-                            if f_lower.endswith('.xlsx') and all(kw in f_lower for kw in keywords):
-                                entry[key] = full_path
-    
-    # Final validation - must have all required files AND be in approved list
-    valid_chips = {
-        chip: paths 
-        for chip, paths in chip_data.items() 
-        if all(k in paths for k in required_patterns) and chip in valid_chip_numbers
-    }
-    
+
+    if excel_only:
+        valid_chips = {chip: paths for chip, paths in chip_data.items() if "cas" in paths}
+    else:
+        valid_chips = {chip: paths for chip, paths in chip_data.items()
+                       if all(k in paths for k in required_patterns)}
+
     return valid_chips

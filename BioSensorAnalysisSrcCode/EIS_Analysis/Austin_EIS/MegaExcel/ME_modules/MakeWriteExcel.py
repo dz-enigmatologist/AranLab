@@ -18,6 +18,8 @@ def write_headers_to_worksheet(worksheet):
 def create_chips_folder_and_workbooks():
     # Folder name
     folder_name = "Processed Chips for PCAI1ia"
+    abs_folder_path = os.path.abspath(folder_name)
+    print(abs_folder_path)
     
     # Workbook names
     workbook_names = [
@@ -30,7 +32,7 @@ def create_chips_folder_and_workbooks():
     ]
     
     # Worksheet names
-    worksheet_names = ["0pM", "100pM", "1nM", "10nM", "100nM"]
+    worksheet_names = ["0pM_asso", "0pM_disso", "100pM_asso", "100pM_disso", "1nM_asso", "1nM_disso", "10nM_asso", "10nM_disso", "100nM_asso", "100nM_disso"]
     
     # Create folder (overwrite if exists)
     try:
@@ -54,6 +56,7 @@ def create_chips_folder_and_workbooks():
             for sheet_name in worksheet_names:
                 ws = wb.create_sheet(title=sheet_name)
                 write_headers_to_worksheet(ws)
+                print(f"Write in : {sheet_name}")
             
             # Save with .xlsx extension
             file_path = os.path.join(folder_name, f"{name}.xlsx")
