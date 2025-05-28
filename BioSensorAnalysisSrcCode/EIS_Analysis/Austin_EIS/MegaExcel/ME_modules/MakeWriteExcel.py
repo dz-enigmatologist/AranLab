@@ -19,7 +19,7 @@ def create_chips_folder_and_workbooks():
     # Folder name
     folder_name = "Processed Chips for PCAI1ia"
     abs_folder_path = os.path.abspath(folder_name)
-    print(abs_folder_path)
+    #print(abs_folder_path)
     
     # Workbook names
     workbook_names = [
@@ -37,9 +37,9 @@ def create_chips_folder_and_workbooks():
     # Create folder (overwrite if exists)
     try:
         os.makedirs(folder_name, exist_ok=True)
-        print(f"Folder '{folder_name}' created.")
+        #print(f"Folder '{folder_name}' created.")
     except OSError as error:
-        print(f"Error creating folder: {error}")
+        #print(f"Error creating folder: {error}")
         return
     
     # Create workbooks
@@ -56,12 +56,12 @@ def create_chips_folder_and_workbooks():
             for sheet_name in worksheet_names:
                 ws = wb.create_sheet(title=sheet_name)
                 write_headers_to_worksheet(ws)
-                print(f"Write in : {sheet_name}")
+                #print(f"Write in : {sheet_name}")
             
             # Save with .xlsx extension
             file_path = os.path.join(folder_name, f"{name}.xlsx")
             wb.save(file_path)
-            print(f"Created workbook '{name}' with worksheets: {worksheet_names}")
+            #print(f"Created workbook '{name}' with worksheets: {worksheet_names}")
             
         except Exception as e:
             print(f"Error creating workbook {name}: {e}")
