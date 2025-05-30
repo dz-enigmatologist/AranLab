@@ -50,7 +50,12 @@ def create_chips_folder_and_workbooks():
             
             # Remove the default sheet created by openpyxl
             default_sheet = wb.active
-            wb.remove(default_sheet)
+            if default_sheet is not None: # <--- ADD THIS CHECK
+                wb.remove(default_sheet)
+            else:
+                print(f"Warning: No active sheet found in new workbook {name}. Skipping removal.")
+
+
             
             # Create all worksheets with specified names
             for sheet_name in worksheet_names:

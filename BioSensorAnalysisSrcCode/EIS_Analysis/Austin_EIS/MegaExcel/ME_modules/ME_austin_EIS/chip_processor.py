@@ -18,6 +18,35 @@ RESULT_COLUMNS = [
     'Cycle', 'Model', 'Rs', 'Rp', 'Q', 'n'
 ]
 
+CHIP_INFO = {
+    #"CHIP TEMPLATE" : ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"],
+    '21': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '22': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '23': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '26': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '27': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '32': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '33': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '35': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '36': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '37': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '39': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '40': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '41': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '43': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '44': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '45': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"],
+    '46': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '47': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '48': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '52': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '53': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '54': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '55': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '56': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '57': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
+    '59': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"]
+}
 # --------------- FILE & SHEET HELPERS ---------------
 
 def load_excel_safely(file_path, chip_number):
