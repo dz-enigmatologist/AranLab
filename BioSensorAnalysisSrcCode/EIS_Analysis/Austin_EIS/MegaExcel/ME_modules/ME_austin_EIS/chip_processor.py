@@ -4,6 +4,8 @@ import numpy as np
 import re
 from collections import defaultdict
 from openpyxl import load_workbook, Workbook
+from typing import Any
+
 
 from ME_modules.ME_impedance_py_modules.processing import analyze_cycle
 
@@ -16,38 +18,8 @@ RESULT_COLUMNS = [
     'Angle', 'Cp_exp-a', 'Cp_exp-b', 'Ph_slope', 'Ph_peak',
     'Area Cp', 'Area Ph', 'Area Slope', 'Area Rs-direct', 'Area Rs-Para',
     '', '',  # Placeholders
-    'linear_eq_slope', 'linear_eq_b', 'Rs', 'delta Rct-i', 'Q', 'n'
+    'linear_eq_m', 'linear_eq_b', 'Rs', 'delta Rct-i', 'Q', 'n'
 ]
-
-CHIP_INFO = {
-    #"CHIP TEMPLATE" : ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"],
-    '21': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '22': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '23': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '26': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '27': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '32': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '33': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '35': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '36': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '37': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '39': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '40': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '41': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '43': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '44': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '45': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"],
-    '46': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '47': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '48': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '52': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '53': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '54': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '55': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '56': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '57': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"], 
-    '59': ["Cas_{complex} or Cas_{only}","{0.5} or {1} Conentration of MgCl2", "{HU} protein or {SCDU} protein"]
-}
 # --------------- FILE & SHEET HELPERS ---------------
 
 def load_excel_safely(file_path, chip_number):
@@ -95,16 +67,21 @@ def process_chip_excel_only(chip_number, file_paths):
     if "cas" not in file_paths:
         print(f"[Chip {chip_number}] No CAS file found.")
         return []
+
     wb = load_excel_safely(file_paths["cas"], chip_number)
     if wb is None:
         return []
+
     results = []
+
     for raw_sheet_name in wb.sheetnames:
         if should_skip_sheet(raw_sheet_name):
             continue
+
         sheet_data = extract_sheet_data(wb, raw_sheet_name, chip_number)
         if sheet_data is None:
             continue
+
         freq_array, Z_array, df = sheet_data
         cycles = split_cycles_from_frequency(freq_array)
         if not cycles:
@@ -112,71 +89,53 @@ def process_chip_excel_only(chip_number, file_paths):
             continue
 
         conc, phase = extract_conc_phase(raw_sheet_name)
-        total_time = 30  # Total experiment duration
-        time_per_cycle = total_time / len(cycles) if len(cycles) > 0 else None
+        total_time = 30
+        time_per_cycle = total_time / len(cycles)
+
+        cp_cols = [col for col in df.columns if "cp" in col.lower()]
+        ph_cols = [col for col in df.columns if "ph" in col.lower()]
 
         for idx, (start, end) in enumerate(cycles, start=1):
-            cycle_data = df.iloc[start:end]
-            if len(cycle_data) < 3:
+            cycle_df = df.iloc[start:end]
+            if len(cycle_df) < 3:
                 continue
 
-            # Get Cp1 and Ph1 (first values of columns containing "Cp" and "Ph")
-            cp1, ph1 = None, None
-            cp_cols = [col for col in df.columns if "cp" in col.lower()]
-            ph_cols = [col for col in df.columns if "ph" in col.lower()]
-            if cp_cols:
-                cp1 = cycle_data[cp_cols[0]].iloc[0]
-            if ph_cols:
-                ph1 = cycle_data[ph_cols[0]].iloc[0]
+            cp1 = cycle_df[cp_cols[0]].iloc[0] if cp_cols else None
+            ph1 = cycle_df[ph_cols[0]].iloc[0] if ph_cols else None
 
-            time_value = time_per_cycle * idx if time_per_cycle else None
-            analysis = compute_analysis(cycle_data)
-            fit_result = analyze_cycle(freq_array[start:end], Z_array[start:end], idx)
+            analysis_row = compute_analysis(
+                cycle_df, idx, time_per_cycle, cp1, ph1, freq_array[start:end], Z_array[start:end]
+            )
 
-            if not analysis and not fit_result:
+            if analysis_row is None:
                 continue
 
-            output_row = build_result_row(analysis, fit_result, idx, time_value, cp1, ph1)
             results.append({
                 "chip": chip_number,
                 "concentration": conc,
                 "phase": phase,
                 "cycle": idx,
-                "columns": output_row
+                "columns": analysis_row
             })
+
     print(f"[Chip {chip_number}] Collected {len(results)} valid analysis cycles.")
     return results
 
 
-def build_result_row(analysis, fit_result, idx, time_value, cp1, ph1):
-    row = {col: None for col in RESULT_COLUMNS}
-    if analysis:
-        for key in row:
-            if key in analysis:
-                row[key] = analysis[key]
-    if fit_result:
-        for key, val in fit_result.items():
-            if key in row:
-                row[key] = val
-    row.update({
-        "Cycle": idx,
-        "time(s)": time_value,
-        "Cp1": cp1,
-        "Ph1": ph1
-    })
-    return row
-
-
 def write_chip_results_to_workbook(result_list, processed_chips_folder):
+    from collections import defaultdict
     chip_data = defaultdict(list)
     for result in result_list:
         chip_data[result["chip"]].append(result)
+
     for chip, rows in chip_data.items():
         filename = f"Chip {chip}.xlsx"
         filepath = os.path.join(processed_chips_folder, filename)
         wb = load_workbook(filepath) if os.path.exists(filepath) else Workbook()
+
         if "Sheet" in wb.sheetnames:
             wb.remove(wb["Sheet"])
+
         for result in rows:
             sheet_name = f"{result['concentration']}_{result['phase']}"
             if sheet_name not in wb.sheetnames:
@@ -184,57 +143,102 @@ def write_chip_results_to_workbook(result_list, processed_chips_folder):
                 for col_idx, col_name in enumerate(RESULT_COLUMNS, 1):
                     ws.cell(row=1, column=col_idx, value=col_name)
                 print(f"[Write] Created new sheet: {sheet_name}")
+
             ws = wb[sheet_name]
             next_row = ws.max_row + 1
             for col_idx, col_name in enumerate(RESULT_COLUMNS, 1):
                 ws.cell(row=next_row, column=col_idx, value=result['columns'].get(col_name))
+
         try:
             wb.save(filepath)
             print(f"[Write] Saved {len(rows)} rows to {filename}")
         except Exception as e:
             print(f"[Write] Failed to save {filename}: {str(e)}")
 
+
 # --------------- ANALYSIS LOGIC ---------------
 
-def compute_analysis(df):
+def compute_analysis(df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_array): 
     try:
         x_raw = df["Rs"].to_numpy(dtype=float)
         y_raw = np.abs(df["X"].to_numpy(dtype=float))
     except KeyError:
         print("Required columns 'Rs' and 'X' not found in CSV.")
         return None
+
     if len(x_raw) < 2:
         return None
-    first_x, first_y = x_raw[0], y_raw[0]
+
+    first_x = x_raw[0]
     sort_idx = np.argsort(x_raw)
-    x_sorted, y_sorted = x_raw[sort_idx], y_raw[sort_idx]
+    x_sorted = x_raw[sort_idx]
+    y_sorted = y_raw[sort_idx]
+
     valid_indices = np.where(x_sorted >= 10000)[0]
-    idx_min_y_region = valid_indices[0] + np.argmin(y_sorted[valid_indices[0]:]) if len(valid_indices) > 0 else np.argmin(y_sorted)
-    global_min_x, global_min_y = x_sorted[idx_min_y_region], y_sorted[idx_min_y_region]
-    last_x, last_y = x_sorted[-1], y_sorted[-1]
-    x_linear, y_linear = x_sorted[idx_min_y_region:], y_sorted[idx_min_y_region:]
+    if len(valid_indices) > 0:
+        min_region_start = valid_indices[0]
+        idx_min_y = min_region_start + np.argmin(y_sorted[min_region_start:])
+    else:
+        idx_min_y = np.argmin(y_sorted)
+
+    global_min_x = x_sorted[idx_min_y]
+
+    x_linear = x_sorted[idx_min_y:]
+    y_linear = y_sorted[idx_min_y:]
     n_linear = len(x_linear)
+
     slopes = [float('nan')] * 5
     if n_linear >= 5:
         segment_length = n_linear // 5
         for i in range(5):
-            start_i, end_i = i * segment_length, (i + 1) * segment_length if i < 4 else n_linear
+            start_i = i * segment_length
+            end_i = (i + 1) * segment_length if i < 4 else n_linear
             if end_i - start_i >= 2:
-                slopes[i] = max(0, np.polyfit(x_linear[start_i:end_i], y_linear[start_i:end_i], 1)[0])
+                slope, _ = np.polyfit(x_linear[start_i:end_i], y_linear[start_i:end_i], 1)
+                slopes[i] = max(0, slope)
     elif n_linear >= 2:
-        slopes[0] = max(0, np.polyfit(x_linear, y_linear, 1)[0])
-    linear_eq, angle_val = "y = nan*x + nan", float('nan')
+        slope, _ = np.polyfit(x_linear, y_linear, 1)
+        slopes[0] = max(0, slope)
+
+    linear_eq_m = b = angle_val = float('nan')
     if len(x_linear) >= 2:
-        m, b = np.polyfit(x_linear, y_linear, 1)
-        angle_val = np.degrees(np.arctan(m))
-        linear_eq = f"y = {m:.3f}x + {b:.3f}"
+        linear_eq_m, b = np.polyfit(x_linear, y_linear, 1)
+        angle_val = np.degrees(np.arctan(linear_eq_m))
+
+    # Analyze the cycle with EIS fitting
+    Rs = Rp = Q = n = None
+    try:
+        fit_result = analyze_cycle(freq_array, Z_array, cycle_idx)
+        if fit_result:
+            Rs = fit_result.get("Rs")
+            Rp = fit_result.get("Rp")
+            Q = fit_result.get("Q")
+            n = fit_result.get("n")
+    except Exception as e:
+        print(f"[Cycle {cycle_idx}] analyze_cycle failed: {e}")
+    
+    #print(f"linear_eq_m = {linear_eq_m}")
     return {
-        "time(s)": None, "delta Rct-a": global_min_x - first_x, "Rct-d": None, "Cp1": None, "Ph1": None,
-        "Slope 1": slopes[0], "Slope 2": slopes[1], "Slope 3": slopes[2], "Slope 4": slopes[3], "Slope 5": slopes[4],
-        "Angle": angle_val, "Cp_exp-a": None, "Cp_exp-b": None, "Ph_slope": None, "Ph_peak": None,
-        "Area Cp": None, "Area Ph": None, "Area Slope": None, "Area Rs-direct": None, "Area Rs-Para": None,
-        "": None, " ": None, "linear_eq_slope": m,"linear_eq_b":b, "Rs": first_x, "delta Rct-i": last_x - global_min_x, "Q": None, "n": None
+        **{col: None for col in RESULT_COLUMNS},
+        "time(s)": time_per_cycle * cycle_idx,
+        "Cp1": cp1,
+        "Ph1": ph1,
+        "delta Rct-a": global_min_x - first_x,
+        "Slope 1": slopes[0],
+        "Slope 2": slopes[1],
+        "Slope 3": slopes[2],
+        "Slope 4": slopes[3],
+        "Slope 5": slopes[4],
+        "Angle": angle_val,
+        "linear_eq_m": linear_eq_m,
+        "linear_eq_b": b,
+        "Rs": Rs,
+        "delta Rct-i": Rp,
+        "Q": Q,
+        "n": n
     }
+
+
 
 def split_cycles_from_frequency(frequency, start_val=100, end_val=200000, tol_start=20, tol_end=10000):
     cycles = []
