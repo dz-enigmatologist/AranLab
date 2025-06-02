@@ -8,6 +8,7 @@ from openpyxl import load_workbook, Workbook
 from ME_modules.ME_impedance_py_modules.processing import analyze_cycle
 
 # --------------- CONFIG ---------------
+all_raw_names_logged = []
 
 RESULT_COLUMNS = [
     'time(s)', 'delta Rct-a', 'Rct-d', 'Cp1', 'Ph1',
@@ -15,7 +16,7 @@ RESULT_COLUMNS = [
     'Angle', 'Cp_exp-a', 'Cp_exp-b', 'Ph_slope', 'Ph_peak',
     'Area Cp', 'Area Ph', 'Area Slope', 'Area Rs-direct', 'Area Rs-Para',
     '', '',  # Placeholders
-    'Cycle', 'Model', 'Rs', 'Rp', 'Q', 'n'
+    'linear_eq_slope', 'linear_eq_b', 'Rs', 'delta Rct-i', 'Q', 'n'
 ]
 
 CHIP_INFO = {
@@ -232,7 +233,7 @@ def compute_analysis(df):
         "Slope 1": slopes[0], "Slope 2": slopes[1], "Slope 3": slopes[2], "Slope 4": slopes[3], "Slope 5": slopes[4],
         "Angle": angle_val, "Cp_exp-a": None, "Cp_exp-b": None, "Ph_slope": None, "Ph_peak": None,
         "Area Cp": None, "Area Ph": None, "Area Slope": None, "Area Rs-direct": None, "Area Rs-Para": None,
-        "": None, " ": None, "Cycle": None, "Model": linear_eq, "Rs": first_x, "Rp": last_x - global_min_x, "Q": None, "n": None
+        "": None, " ": None, "linear_eq_slope": m,"linear_eq_b":b, "Rs": first_x, "delta Rct-i": last_x - global_min_x, "Q": None, "n": None
     }
 
 def split_cycles_from_frequency(frequency, start_val=100, end_val=200000, tol_start=20, tol_end=10000):
@@ -249,6 +250,9 @@ def split_cycles_from_frequency(frequency, start_val=100, end_val=200000, tol_st
     return cycles
 
 def normalize_sheet_name(raw_name):
+    # Log the raw name as before
+    all_raw_names_logged.append(raw_name)
+
     MAPPINGS = {
         "0pM_asso": ['0 pM_Cas_only_Association', '0 pM_Cas_complex_Association', '0 Cas only_Association', '0 Cas complex_Association'],
         "0pM_disso": ['0 pM_Cas_only_Dissociation', '0 pM_Cas_complex_Dissociation', '0 Cas only_Dissociation', '0 Cas complex_Dissociation'],
@@ -262,11 +266,22 @@ def normalize_sheet_name(raw_name):
         "100nM_disso": ['100 nM_Cas_only_Dissociation', '100 nM_Cas_complex_Dissociation', '100 nM Cas only_Dissociation', '100 nM Cas complex_Dissociation'],
         "step_asso": ["Association step"], "step_disso": ["Dissociation step"]
     }
-    forward_map = {variant: norm_name for norm_name, variants in MAPPINGS.items() for variant in variants}
-    if raw_name in forward_map:
-        return forward_map[raw_name]
-    clean_name = re.sub(r'\s+', '', raw_name).lower()
-    for variant, norm_name in forward_map.items():
-        if re.sub(r'\s+', '', variant).lower() == clean_name:
-            return norm_name
+
+    # Pre-process MAPPINGS to create the forward_map with cleaned keys
+    # This makes the lookup more robust.
+    forward_map = {}
+    for norm_name, variants in MAPPINGS.items():
+        for variant in variants:
+            # Clean the variant name by removing non-alphanumeric characters and lowercasing
+            cleaned_variant = re.sub(r'[^a-z0-9]', '', variant.lower())
+            forward_map[cleaned_variant] = norm_name
+
+    # --- Step 1: Direct lookup (after cleaning raw_name) ---
+    # Clean the input raw_name by removing non-alphanumeric characters and lowercasing
+    cleaned_raw_name = re.sub(r'[^a-z0-9]', '', raw_name.lower())
+
+    if cleaned_raw_name in forward_map:
+        return forward_map[cleaned_raw_name]
+
+    # If no match found after cleaning, return None
     return None
