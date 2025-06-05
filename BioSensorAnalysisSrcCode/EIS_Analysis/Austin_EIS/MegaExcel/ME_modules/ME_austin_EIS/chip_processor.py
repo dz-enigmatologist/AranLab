@@ -13,13 +13,14 @@ from ME_modules.ME_impedance_py_modules.processing import analyze_cycle
 all_raw_names_logged = []
 
 RESULT_COLUMNS = [
-    'time(s)', 'delta Rct-a', 'Rct-d', 'Cp1', 'Ph1',
+    'time(mins)', 'delta Rct-a', 'Rct-d', 'Cp1', 'Ph1',
     'Slope 1', 'Slope 2', 'Slope 3', 'Slope 4', 'Slope 5',
     'Angle', 'Cp_exp-a', 'Cp_exp-b', 'Ph_slope', 'Ph_peak',
     'Area Cp', 'Area Ph', 'Area Slope', 'Area Rs-direct', 'Area Rs-Para',
     '', '',  # Placeholders
     'linear_eq_m', 'linear_eq_b', 'Rs', 'delta Rct-i', 'Q', 'n'
 ]
+
 # --------------- FILE & SHEET HELPERS ---------------
 
 def load_excel_safely(file_path, chip_number):
@@ -89,7 +90,11 @@ def process_chip_excel_only(chip_number, file_paths):
             continue
 
         conc, phase = extract_conc_phase(raw_sheet_name)
-        total_time = 30
+        if phase == "asso":
+            total_time = 15 #minutes
+        elif phase == "disso":
+            total_time = 30 #minutes
+
         time_per_cycle = total_time / len(cycles)
 
         cp_cols = [col for col in df.columns if "cp" in col.lower()]
@@ -220,7 +225,7 @@ def compute_analysis(df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_arra
     #print(f"linear_eq_m = {linear_eq_m}")
     return {
         **{col: None for col in RESULT_COLUMNS},
-        "time(s)": time_per_cycle * cycle_idx,
+        "time(mins)": time_per_cycle * cycle_idx,
         "Cp1": cp1,
         "Ph1": ph1,
         "delta Rct-a": global_min_x - first_x,
