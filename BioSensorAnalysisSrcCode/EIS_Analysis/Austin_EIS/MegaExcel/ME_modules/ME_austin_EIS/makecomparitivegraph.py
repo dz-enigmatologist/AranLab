@@ -162,9 +162,6 @@ def plot_vs_time(data, output_folder):
             plt.close()
             print(f"Saved normalized time-based plot: {save_path}")
 
-
-
-
 def comparitive_graphs():
     folder_path = select_folder()
     if not folder_path:
