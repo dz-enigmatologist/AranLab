@@ -174,10 +174,12 @@ def compute_analysis(df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_arra
     if len(x_raw) < 2:
         return None
 
-    first_x = x_raw[0]
+    
     sort_idx = np.argsort(x_raw)
     x_sorted = x_raw[sort_idx]
     y_sorted = y_raw[sort_idx]
+
+    first_x = x_sorted[0]
 
     valid_indices = np.where(x_sorted >= 10000)[0]
     if len(valid_indices) > 0:
