@@ -8,12 +8,13 @@ from typing import Any
 
 
 from ME_modules.ME_impedance_py_modules.processing import analyze_cycle
+from ME_modules.ME_deepta_EIS.deepta_EIS import deepta_analysis_fucntions
 
 # --------------- CONFIG ---------------
 all_raw_names_logged = []
 
 RESULT_COLUMNS = [
-    'time(mins)', 'delta Rct-a', 'Rct-d', 'Cp1', 'Ph1',
+    'time(mins)', 'delta Rct-a', 'delta Rct-d', 'Cp1', 'Ph1',
     'Slope 1', 'Slope 2', 'Slope 3', 'Slope 4', 'Slope 5',
     'Angle', 'Cp_exp-a', 'Cp_exp-b', 'Ph_slope', 'Ph_peak',
     'Area Cp', 'Area Ph', 'Area Slope', 'Area Rs-direct', 'Area Rs-Para',
@@ -225,12 +226,16 @@ def compute_analysis(df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_arra
         print(f"[Cycle {cycle_idx}] analyze_cycle failed: {e}")
     
     #print(f"linear_eq_m = {linear_eq_m}")
+
+    deetpa_results = deepta_analysis_fucntions(df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_array)
+
     return {
         **{col: None for col in RESULT_COLUMNS},
         "time(mins)": time_per_cycle * cycle_idx,
+        "delta Rct-a": global_min_x - first_x,
+        "delta Rct-d": deetpa_results["Rct_semicircle"],
         "Cp1": cp1,
         "Ph1": ph1,
-        "delta Rct-a": global_min_x - first_x,
         "Slope 1": slopes[0],
         "Slope 2": slopes[1],
         "Slope 3": slopes[2],

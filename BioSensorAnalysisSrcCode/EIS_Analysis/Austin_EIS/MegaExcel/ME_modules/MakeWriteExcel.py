@@ -4,7 +4,7 @@ from openpyxl import Workbook
 def write_headers_to_worksheet(worksheet):
     """Helper function to write headers to a worksheet"""
     headers = [
-        'time(mins)', 'delta Rct-a', 'Rct-d', 'Cp1', 'Ph1', 
+        'time(mins)', 'delta Rct-a', 'delta Rct-d', 'Cp1', 'Ph1', 
         'Slope 1', 'Slope 2', 'Slope 3', 'Slope 4', 'Slope 5', 
         'Angle', 'Cp_exp-a', 'Cp_exp-b', 'Ph_slope', 'Ph_peak', 
         'Area Cp', 'Area Ph', 'Area Slope', 'Area Rs-direct', 'Area Rs-Para',
