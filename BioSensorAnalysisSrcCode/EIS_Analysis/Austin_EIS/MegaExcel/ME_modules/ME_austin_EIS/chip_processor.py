@@ -8,7 +8,7 @@ from typing import Any
 
 
 from ME_modules.ME_impedance_py_modules.processing import analyze_cycle
-from ME_modules.ME_deepta_EIS.deepta_EIS import deepta_analysis_fucntions
+from ME_modules.ME_deepta_EIS.deepta_EIS_new import deepta_analysis_functions
 
 # --------------- CONFIG ---------------
 all_raw_names_logged = []
@@ -227,13 +227,56 @@ def compute_analysis(df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_arra
     
     #print(f"linear_eq_m = {linear_eq_m}")
 
-    deetpa_results = deepta_analysis_fucntions(df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_array)
+    # Assuming you've already called the function like this:
+    deepta_results = deepta_analysis_functions(
+        df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_array, debug=True
+    )
 
+    # Extract all available results, including the new methods
+    rct_semicircle = deepta_results.get("Rct_semicircle")
+    rs_circle = deepta_results.get("Rs")
+    rct_randles = deepta_results.get("Rct_randles")
+    rs_randles = deepta_results.get("Rs_randles")
+    q_randles = deepta_results.get("Q")
+    n_randles = deepta_results.get("n")
+
+    # --- New lines for ellipse, least-squares circle, and polynomial fits ---
+    rct_ellipse = deepta_results.get("Rct_ellipse")
+    rs_ellipse = deepta_results.get("Rs_ellipse")
+    rct_ls_circle = deepta_results.get("Rct_ls_circle")
+    rs_ls_circle = deepta_results.get("Rs_ls_circle")
+    rct_poly = deepta_results.get("Rct_poly")
+    rs_poly = deepta_results.get("Rs_poly")
+
+
+    # Decide which method to use based on the order of preference
+    method_used = deepta_results.get("method_used", "none")
+
+    if method_used == "taubin_circle":
+        delta_rct_d = rct_semicircle
+        rs_final = rs_circle
+    elif method_used == "randles":
+        delta_rct_d = rct_randles
+        rs_final = rs_randles
+    elif method_used == "ellipse":
+        delta_rct_d = rct_ellipse
+        rs_final = rs_ellipse
+    elif method_used == "ls_circle":
+        delta_rct_d = rct_ls_circle
+        rs_final = rs_ls_circle
+    elif method_used == "poly_x4":
+        delta_rct_d = rct_poly
+        rs_final = rs_poly
+    else:
+        delta_rct_d = global_min_x - first_x
+        rs_final = "delta Rct-a" # Or another default if applicable
+
+    # --- The rest of your code remains largely the same, but now uses the determined values.
     return {
         **{col: None for col in RESULT_COLUMNS},
         "time(mins)": time_per_cycle * cycle_idx,
         "delta Rct-a": global_min_x - first_x,
-        "delta Rct-d": deetpa_results["Rct_semicircle"],
+        "delta Rct-d": delta_rct_d,
         "Cp1": cp1,
         "Ph1": ph1,
         "Slope 1": slopes[0],
@@ -244,13 +287,13 @@ def compute_analysis(df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_arra
         "Angle": angle_val,
         "linear_eq_m": linear_eq_m,
         "linear_eq_b": b,
-        "Rs": Rs,
-        "delta Rct-i": Rp,
-        "Q": Q,
-        "n": n
+        "Rs": rs_final,
+        "Q": q_randles if method_used == "randles" else Q, # Q and n only apply to Randles
+        "n": n_randles if method_used == "randles" else n,
+        "fit_success": deepta_results.get("fit_success", False),
+        "fit_quality": deepta_results.get("fit_quality"),
+        "method_used": method_used,
     }
-
-
 
 def split_cycles_from_frequency(frequency, start_val=100, end_val=200000, tol_start=20, tol_end=10000):
     cycles = []
