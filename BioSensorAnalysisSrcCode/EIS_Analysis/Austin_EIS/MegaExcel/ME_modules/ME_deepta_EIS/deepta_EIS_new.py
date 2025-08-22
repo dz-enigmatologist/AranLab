@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 import warnings
 from circle_fit import taubinSVD
 from scipy.signal import savgol_filter
@@ -45,27 +46,84 @@ def deepta_analysis_functions(df, cycle_idx, time_per_cycle, cp1, ph1, freq_arra
     try:
         # --- Step 1: Find initial transition point ---
         base_transition_idx = find_transition_point_optimized(x_raw, y_raw, debug=debug)
+        results["transition_index"] = int(base_transition_idx)
 
-        # --- Step 2: Try fitting with multiple shifted transition points ---
-        for shift in range(0, 501, 100):  # 0, 100, 200, 300, 400, 500
-            transition_idx = min(base_transition_idx + shift, len(x_raw) - 3)
-            results["transition_index"] = int(transition_idx)
+        # --- PLOTTING SECTION ---
+        # Initialize a single plot at the start
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.scatter(x_raw, y_raw, label="Raw Data", color="black", s=15)
+
+        # Add vertical line at transition
+        if 0 <= base_transition_idx < len(x_raw):
+            ax.axvline(x=x_raw[base_transition_idx], color="red", linestyle="--", 
+                       label="Transition Point", alpha=0.7)
+
+        # === Add linear regression fit ===
+        try:
+            model = LinearRegression().fit(x_raw.reshape(-1, 1), y_raw)
+            fit_params = {"slope": model.coef_[0], "intercept": model.intercept_}
+            
+            # 🟢 Plot the fit, regardless of success.
+            # We use a separate function here for clarity.
+            x_line = np.linspace(min(x_raw), max(x_raw), 100)
+            y_line = fit_params["slope"] * x_line + fit_params["intercept"]
+            ax.plot(x_line, y_line, 'b-', label="Linear fit", alpha=0.7)
 
             if debug:
-                print(f"\n🔄 Retrying fit with transition index shifted by {shift} -> {transition_idx}")
+                print("✅ Linear regression fit plotted successfully")
+        except Exception as e:
+            if debug:
+                print(f"⚠️ Linear regression fit failed: {e}")
 
+        # === Add exponential fit ===
+        try:
+            def exp_func(x, A, b): 
+                return A * np.exp(b * x)
+            popt, _ = curve_fit(exp_func, x_raw, y_raw, maxfev=5000)
+            exp_A, exp_b = popt
+            y_pred = exp_func(x_raw, *popt)
+            ss_res = np.sum((y_raw - y_pred) ** 2)
+            ss_tot = np.sum((y_raw - np.mean(y_raw)) ** 2)
+            r2 = 1 - ss_res / ss_tot if ss_tot > 0 else None
+            fit_params = {"a": exp_A, "b": exp_b, "r2": r2}
+            
+            # 🟢 Plot the exponential fit.
+            x_curve = np.linspace(min(x_raw), max(x_raw), 100)
+            y_curve = exp_func(x_curve, *popt)
+            label = f"Exponential fit (R²={r2:.3f})" if r2 is not None else "Exponential fit"
+            ax.plot(x_curve, y_curve, 'r-', label=label, alpha=0.7)
+
+            if debug:
+                print("✅ Exponential fit plotted successfully")
+        except Exception as e:
+            if debug:
+                print(f"⚠️ Exponential fit failed: {e}")
+
+        # --- Step 2: Try fitting with multiple shifted transition points ---
+        # The subsequent fits will be added to the *same* plot
+        for shift in range(0, 501, 100):
+            transition_idx = min(base_transition_idx + shift, len(x_raw) - 3)
+            results["transition_index"] = int(transition_idx)
+            
             x_fit_region = x_raw[transition_idx:]
             y_fit_region = y_raw[transition_idx:]
 
             if len(x_fit_region) < 3:
                 if debug:
-                    print(f"⚠️ Fit region too small ({len(x_fit_region)} pts), skipping.")
+                    print(f"⚠️ Fit region too small ({len(x_fit_region)} pts), skipping shift {shift}")
                 continue
+                
+            label_prefix = f"Shift {shift}: "
 
             # === Method A: Circle Fit (TaubinSVD) ===
             try:
                 circle_coords = np.column_stack((x_fit_region, y_fit_region))
                 xc, yc, r, sigma = taubinSVD(circle_coords)
+                circle_params = {"xc": xc, "yc": yc, "r": r}
+                
+                # 🟢 Plot the fit, regardless of validation success
+                plot_fit(x_fit_region, y_fit_region, "circle", circle_params, ax, label_prefix, debug=debug)
+                
                 validation = validate_circle_fit(x_fit_region, y_fit_region, xc, yc, r, debug=debug)
                 if validation["is_valid"]:
                     results["Rct_semicircle"] = 2.0 * r
@@ -74,79 +132,175 @@ def deepta_analysis_functions(df, cycle_idx, time_per_cycle, cp1, ph1, freq_arra
                     results["fit_quality"] = sigma
                     results["method_used"] = "taubin_circle"
                     if debug:
-                        print(f"✅ TaubinSVD Circle fit successful: Rct={results['Rct_semicircle']:.3f}, Rs={results['Rs']:.3f}")
+                        print(f"✅ TaubinSVD Circle fit successful and validated: Rct={results['Rct_semicircle']:.3f}")
+                    
+                    ax.set_title(f"Nyquist Plot - Cycle {cycle_idx}\nSuccessful TaubinSVD Fit")
+                    plt.show()
                     return results
                 else:
                     if debug:
-                        print(f"⚠️ TaubinSVD Circle fit failed: {validation['reason']}")
+                        print(f"⚠️ TaubinSVD Circle fit failed validation: {validation['reason']}")
             except Exception as e:
                 if debug:
                     print(f"⚠️ TaubinSVD Circle fit exception: {e}")
-
+                    
             # === Method B: Randles Fit ===
-            randles_results = fit_randles_circuit(freq_array, x_raw, y_raw, debug=debug)
-            if randles_results:
-                results.update(randles_results)
-                results["fit_success"] = True
-                results["method_used"] = "randles"
+            # The structure for Randles is different, so we'll need to
+            # ensure it returns the necessary plotting parameters.
+            # Assuming fit_randles_circuit returns a dict with 'Rs' and 'Rct'
+            try:
+                randles_params = fit_randles_circuit(freq_array, x_raw, y_raw, debug=debug)
+                if randles_params:
+                    plot_fit(x_raw, y_raw, "randles", randles_params, ax, label_prefix, debug=debug)
+                    results.update(randles_params)
+                    results["fit_success"] = True
+                    results["method_used"] = "randles"
+                    if debug:
+                        print("✅ Randles fit successful.")
+                    ax.set_title(f"Nyquist Plot - Cycle {cycle_idx}\nSuccessful Randles Fit")
+                    plt.show()
+                    return results
+                else:
+                    if debug:
+                        print("⚠️ Randles fit failed.")
+            except Exception as e:
                 if debug:
-                    print("✅ Randles fit successful.")
-                return results
-            else:
-                if debug:
-                    print("⚠️ Randles fit failed.")
-
+                    print(f"⚠️ Randles fit exception: {e}")
+                    
             # === Method C: Ellipse Fit ===
-            ellipse_results = fit_ellipse(x_fit_region, y_fit_region, debug=debug)
-            if ellipse_results:
-                results.update(ellipse_results)
-                results["fit_success"] = True
-                results["method_used"] = "ellipse"
+            try:
+                ellipse_params = fit_ellipse(x_fit_region, y_fit_region, debug=debug)
+                if ellipse_params:
+                    # 🟢 Plot the ellipse fit
+                    plot_fit(x_fit_region, y_fit_region, "ellipse", ellipse_params, ax, label_prefix, debug=debug)
+                    
+                    # Update results and return only if it's a "successful" fit
+                    results.update(ellipse_params)
+                    results["fit_success"] = True
+                    results["method_used"] = "ellipse"
+                    if debug:
+                        print("✅ Ellipse fit successful.")
+                    ax.set_title(f"Nyquist Plot - Cycle {cycle_idx}\nSuccessful Ellipse Fit")
+                    plt.show()
+                    return results
+                else:
+                    if debug:
+                        print("⚠️ Ellipse fit failed.")
+            except Exception as e:
                 if debug:
-                    print("✅ Ellipse fit successful.")
-                return results
-            else:
-                if debug:
-                    print("⚠️ Ellipse fit failed.")
+                    print(f"⚠️ Ellipse fit exception: {e}")
 
             # === Method D: Least-Squares Circle Fit ===
-            ls_circle_results = fit_least_squares_circle(x_fit_region, y_fit_region, debug=debug)
-            if ls_circle_results:
-                results.update(ls_circle_results)
-                results["fit_success"] = True
-                results["method_used"] = "ls_circle"
+            try:
+                ls_circle_params = fit_least_squares_circle(x_fit_region, y_fit_region, debug=debug)
+                if ls_circle_params:
+                    # 🟢 Plot the LS circle fit
+                    plot_fit(x_fit_region, y_fit_region, "circle", ls_circle_params, ax, label_prefix, debug=debug)
+                    
+                    results.update(ls_circle_params)
+                    results["fit_success"] = True
+                    results["method_used"] = "ls_circle"
+                    if debug:
+                        print("✅ Least-squares circle fit successful.")
+                    ax.set_title(f"Nyquist Plot - Cycle {cycle_idx}\nSuccessful Least-Squares Circle Fit")
+                    plt.show()
+                    return results
+                else:
+                    if debug:
+                        print("⚠️ Least-squares circle fit failed.")
+            except Exception as e:
                 if debug:
-                    print("✅ Least-squares circle fit successful.")
-                return results
-            else:
-                if debug:
-                    print("⚠️ Least-squares circle fit failed.")
-
+                    print(f"⚠️ Least-squares circle fit exception: {e}")
+            
             # === Method E: Polynomial Fit (x^4) ===
-            poly_results = fit_x4_poly(x_fit_region, y_fit_region, debug=debug)
-            if poly_results:
-                results.update(poly_results)
-                results["fit_success"] = True
-                results["method_used"] = "poly_x4"
+            try:
+                poly_params = fit_x4_poly(x_fit_region, y_fit_region, debug=debug)
+                if poly_params:
+                    # 🟢 Plot the polynomial fit
+                    plot_fit(x_fit_region, y_fit_region, "polynomial", poly_params, ax, label_prefix, debug=debug)
+                    
+                    results.update(poly_params)
+                    results["fit_success"] = True
+                    results["method_used"] = "poly_x4"
+                    if debug:
+                        print("✅ x^4 Polynomial fit successful.")
+                    ax.set_title(f"Nyquist Plot - Cycle {cycle_idx}\nSuccessful Polynomial Fit")
+                    plt.show()
+                    return results
+                else:
+                    if debug:
+                        print("⚠️ x^4 Polynomial fit failed.")
+            except Exception as e:
                 if debug:
-                    print("✅ x^4 Polynomial fit successful.")
-                return results
-            else:
-                if debug:
-                    print("⚠️ x^4 Polynomial fit failed.")
-
-        # If we reach here, everything failed even after shifting 500 pts
+                    print(f"⚠️ x^4 Polynomial fit exception: {e}")
+                    
+        # If we reach here, all methods and all shifts failed.
         results["failure_reason"] = "All fitting methods failed after shifting transition point."
         if debug:
             print("❌ All fitting methods failed after retries.")
-
+            
+        ax.set_title(f"Nyquist Plot - Cycle {cycle_idx}\nAll Fits Failed")
+        plt.show() # Display the final plot with all failed fits
+        
     except Exception as e:
         results["failure_reason"] = f"Exception: {e}"
         if debug:
             import traceback
             traceback.print_exc()
 
+    ax.set_xlabel("Z' (Ohm)")
+    ax.set_ylabel("-Z'' (Ohm)")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    plt.show() # Show the final plot, even if an exception occurred
+
     return results
+
+def plot_fit(x_raw, y_raw, method_name, fit_params, ax, label_prefix, debug=False):
+    """
+    Plots the fit for a given method on the specified axes.
+    This function handles the logic for drawing different types of fits.
+    """
+    try:
+        if method_name == "circle" and all(k in fit_params for k in ["xc", "yc", "r"]):
+            xc, yc, r = fit_params["xc"], fit_params["yc"], fit_params["r"]
+            theta = np.linspace(0, np.pi, 100)
+            x_circle = xc + r * np.cos(theta)
+            y_circle = yc + r * np.sin(theta)
+            ax.plot(x_circle, y_circle, label=f'{label_prefix} Semicircle', linestyle='--')
+        
+        elif method_name == "ellipse" and all(k in fit_params for k in ["xc", "yc", "a", "b", "phi"]):
+            xc, yc, a, b, phi = fit_params["xc"], fit_params["yc"], fit_params["a"], fit_params["b"], fit_params["phi"]
+            t = np.linspace(0, 2 * np.pi, 100)
+            xt = a * np.cos(t)
+            yt = b * np.sin(t)
+            x_ellipse = xc + xt * np.cos(phi) - yt * np.sin(phi)
+            y_ellipse = yc + xt * np.sin(phi) + yt * np.cos(phi)
+            ax.plot(x_ellipse, y_ellipse, label=f'{label_prefix} Ellipse', linestyle='-.')
+
+        elif method_name == "randles" and all(k in fit_params for k in ["Rs", "Rct"]):
+            Rs, Rct = fit_params["Rs"], fit_params["Rct"]
+            # To plot a Randles circuit, we need the frequency array
+            # This is a placeholder since the frequency is not passed here.
+            # A simple line can be drawn for visualization.
+            x_line = np.array([Rs, Rs + Rct])
+            y_line = np.array([0, 0])
+            ax.plot(x_line, y_line, 'C2--', label=f'{label_prefix} Randles')
+            
+        elif method_name == "polynomial" and "coefficients" in fit_params:
+            coefficients = fit_params["coefficients"]
+            x_curve = np.linspace(min(x_raw), max(x_raw), 100)
+            y_curve = np.polyval(coefficients, x_curve)
+            ax.plot(x_curve, y_curve, label=f'{label_prefix} Poly', linestyle=':')
+
+        else:
+            if debug:
+                print(f"⚠️  Could not plot fit for {method_name}: Missing or invalid parameters.")
+    
+    except Exception as e:
+        if debug:
+            print(f"❌ Error while plotting {method_name} fit: {e}")
 
 def fit_least_squares_circle(x, y, debug=False):
     """Fit a circle using a least-squares optimization."""
@@ -390,7 +544,6 @@ def find_transition_point_optimized(x_in, y_in, debug=False,
     if x.size < 5: return 0
 
     # Optional Savitzky-Golay smoothing
-    from scipy.signal import savgol_filter
     if smooth_window >= 3 and smooth_window % 2 == 1 and x.size > smooth_window:
         y_smooth = savgol_filter(y, smooth_window, smooth_poly)
     else:
@@ -515,3 +668,123 @@ def find_transition_point_optimized(x_in, y_in, debug=False,
     best_idx = max(1, min(best_idx, n-3))
     if debug: print(f"  chosen transition_idx={best_idx} with score={best_score:.6e}")
     return best_idx
+
+def plot_fit_xxx(x, y, method_name, fit_params, debug=False):
+    """
+    Plot various types of fits on the current active figure/axes.
+    
+    Parameters:
+    x, y: Data points to plot
+    method_name: Type of fit ('circle', 'polynomial', 'randles', 'linear_regression', 'exponential')
+    fit_params: Dictionary of parameters needed for the specific fit type
+    debug: If True, print detailed information about the plotting process
+    """
+    # Get current axes
+    ax = plt.gca()
+    
+    if debug:
+        print(f"🖌️  Plotting {method_name} fit with params: {fit_params}")
+    
+    try:
+        if method_name == "linear_regression":
+            # Check if we have the required parameters
+            if "slope" not in fit_params or "intercept" not in fit_params:
+                if debug:
+                    print("⚠️  Missing parameters for linear regression: need 'slope' and 'intercept'")
+                return
+            
+            slope = fit_params["slope"]
+            intercept = fit_params["intercept"]
+            
+            # Generate line
+            x_line = np.linspace(min(x), max(x), 100)
+            y_line = slope * x_line + intercept
+            
+            # Plot the line
+            ax.plot(x_line, y_line, 'b-', label="Linear fit", alpha=0.7)
+            
+            if debug:
+                print(f"✅ Linear fit plotted: y = {slope:.3f}x + {intercept:.3f}")
+                
+        elif method_name == "exponential":
+            # Check if we have the required parameters
+            if "a" not in fit_params or "b" not in fit_params:
+                if debug:
+                    print("⚠️  Missing parameters for exponential fit: need 'a' and 'b'")
+                return
+            
+            a = fit_params["a"]
+            b = fit_params["b"]
+            r2 = fit_params.get("r2", None)
+            
+            # Generate curve
+            x_curve = np.linspace(min(x), max(x), 100)
+            y_curve = a * np.exp(b * x_curve)
+            
+            # Create label with R² if available
+            label = "Exponential fit"
+            if r2 is not None:
+                label = f"Exponential fit (R²={r2:.3f})"
+            
+            # Plot the curve
+            ax.plot(x_curve, y_curve, 'r-', label=label, alpha=0.7)
+            
+            if debug:
+                print(f"✅ Exponential fit plotted: y = {a:.3f} * exp({b:.3f}x)")
+                if r2 is not None:
+                    print(f"   R² = {r2:.3f}")
+                    
+        elif method_name == "circle":
+            # Check if we have the required parameters
+            if "xc" not in fit_params or "yc" not in fit_params or "r" not in fit_params:
+                if debug:
+                    print("⚠️  Missing parameters for circle fit: need 'xc', 'yc', and 'r'")
+                return
+            
+            xc = fit_params["xc"]
+            yc = fit_params["yc"]
+            r = fit_params["r"]
+            
+            # Generate circle points
+            theta = np.linspace(0, 2*np.pi, 100)
+            x_circle = xc + r * np.cos(theta)
+            y_circle = yc + r * np.sin(theta)
+            
+            # Plot the circle
+            ax.plot(x_circle, y_circle, 'g-', label="Circle fit", alpha=0.7)
+            
+            if debug:
+                print(f"✅ Circle fit plotted: center=({xc:.3f}, {yc:.3f}), radius={r:.3f}")
+                
+        elif method_name == "polynomial":
+            # Check if we have the required parameters
+            if "coefficients" not in fit_params:
+                if debug:
+                    print("⚠️  Missing parameters for polynomial fit: need 'coefficients'")
+                return
+            
+            coefficients = fit_params["coefficients"]
+            
+            # Generate polynomial curve
+            x_curve = np.linspace(min(x), max(x), 100)
+            y_curve = np.polyval(coefficients, x_curve)
+            
+            # Plot the polynomial
+            order = len(coefficients) - 1
+            ax.plot(x_curve, y_curve, 'm-', label=f"Polynomial fit (order {order})", alpha=0.7)
+            
+            if debug:
+                print(f"✅ Polynomial fit plotted: order {order}")
+                
+        elif method_name == "randles":
+            # This would be more complex - for now just plot a placeholder
+            if debug:
+                print("ℹ️  Randles circuit fit visualization not yet implemented")
+                
+        else:
+            if debug:
+                print(f"⚠️  Unknown fit method: {method_name}")
+                
+    except Exception as e:
+        if debug:
+            print(f"❌ Error plotting {method_name} fit: {str(e)}")
