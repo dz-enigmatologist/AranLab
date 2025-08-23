@@ -14,7 +14,7 @@ from ME_modules.ME_deepta_EIS.deepta_EIS_new import deepta_analysis_functions
 all_raw_names_logged = []
 
 RESULT_COLUMNS = [
-    'time(mins)', 'delta Rct-a', 'delta Rct-d', 'Cp1', 'Ph1',
+    'time(mins)', 'delta Rct-a', 'normalized Rct_a','delta Rct-d','normalized Rct_d', 'Cp1', 'Ph1',
     'Slope 1', 'Slope 2', 'Slope 3', 'Slope 4', 'Slope 5',
     'Angle', 'Cp_exp-a', 'Cp_exp-b', 'Ph_slope', 'Ph_peak',
     'Area Cp', 'Area Ph', 'Area Slope', 'Area Rs-direct', 'Area Rs-Para',
@@ -101,6 +101,10 @@ def process_chip_excel_only(chip_number, file_paths):
         cp_cols = [col for col in df.columns if "cp" in col.lower()]
         ph_cols = [col for col in df.columns if "ph" in col.lower()]
 
+        # --- NEW: store first cycle deltas per sheet ---
+        first_delta_rct_a = None
+        first_delta_rct_d = None
+
         for idx, (start, end) in enumerate(cycles, start=1):
             cycle_df = df.iloc[start:end]
             if len(cycle_df) < 3:
@@ -115,6 +119,17 @@ def process_chip_excel_only(chip_number, file_paths):
 
             if analysis_row is None:
                 continue
+
+            # --- NEW: compute normalized values ---
+            delta_a = analysis_row["delta Rct-a"]
+            delta_d = analysis_row["delta Rct-d"]
+
+            if first_delta_rct_a is None:
+                first_delta_rct_a = delta_a
+                first_delta_rct_d = delta_d
+
+            analysis_row["normalized Rct_a"] = delta_a / first_delta_rct_a if first_delta_rct_a else None
+            analysis_row["normalized Rct_d"] = delta_d / first_delta_rct_d if first_delta_rct_d else None
 
             results.append({
                 "chip": chip_number,
