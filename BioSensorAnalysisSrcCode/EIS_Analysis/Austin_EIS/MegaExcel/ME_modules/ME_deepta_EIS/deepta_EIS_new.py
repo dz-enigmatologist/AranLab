@@ -8,6 +8,20 @@ from scipy.optimize import curve_fit, least_squares
 from sklearn.linear_model import LinearRegression, RANSACRegressor
 import math
 
+
+def remove_outliers_iqr(data):
+    """Remove outliers using IQR method and return filtered data + indices kept"""
+    data = np.array(data)
+    if len(data) < 4:  # not enough points for IQR
+        return data, np.arange(len(data))
+    Q1 = np.nanpercentile(data, 25)
+    Q3 = np.nanpercentile(data, 75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    mask = (data >= lower_bound) & (data <= upper_bound)
+    return data[mask], np.where(mask)[0]
+
 def deepta_analysis_functions(df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_array, debug=False):
     """
     Main analysis function that processes EIS data and returns results.
@@ -88,6 +102,13 @@ def deepta_analysis_functions(df, cycle_idx, time_per_cycle, cp1, ph1, freq_arra
                 x_fit_region = x_raw[:current_transition_idx]  # From start to transition point
                 y_fit_region = y_raw[:current_transition_idx]  # From start to transition point
                 
+                preFiltered_x = x_fit_region
+                preFiltered_y = y_fit_region
+
+                # remove outliers
+                y_fit_region, keep_idx = remove_outliers_iqr(preFiltered_y)       
+                x_fit_region = preFiltered_x[keep_idx]
+
                 # Prepare coordinates for circle fitting
                 circle_coords = np.column_stack((x_fit_region, y_fit_region))
                 
@@ -178,7 +199,7 @@ def deepta_analysis_functions(df, cycle_idx, time_per_cycle, cp1, ph1, freq_arra
                             pass  # If we can't calculate parameters, we'll skip detailed plotting
                         
                         # Create plot
-                        plt.figure(figsize=(8, 6))
+                        #plt.figure(figsize=(8, 6))
                         plt.scatter(x_fit_region, y_fit_region, label="Fit Region Data", color="blue", s=15)
                         
                         if ellipse_params:  # If we have parameters, plot the ellipse
@@ -256,7 +277,7 @@ def deepta_analysis_functions(df, cycle_idx, time_per_cycle, cp1, ph1, freq_arra
                             pass  # If we can't calculate parameters, we'll skip detailed plotting
                         
                         # Create plot
-                        plt.figure(figsize=(8, 6))
+                        #plt.figure(figsize=(8, 6))
                         plt.scatter(x_fit_region, y_fit_region, label="Fit Region Data", color="blue", s=15)
                         
                         if circle_params:  # If we have parameters, plot the circle
@@ -339,7 +360,7 @@ def deepta_analysis_functions(df, cycle_idx, time_per_cycle, cp1, ph1, freq_arra
                             pass  # If we can't calculate parameters, we'll skip detailed plotting
                         
                         # Create plot
-                        plt.figure(figsize=(8, 6))
+                        #plt.figure(figsize=(8, 6))
                         plt.scatter(x_fit_region, y_fit_region, label="Fit Region Data", color="blue", s=15)
                         
                         if poly_params and "coefficients" in poly_params:  # If we have coefficients, plot the polynomial
@@ -556,7 +577,7 @@ def find_transition_point_old_method(x, y, debug=False):
 def plot_circle_fit(x, y, xc, yc, r, shift, cycle_idx, debug=False):
     """Plot circle fit with detailed visualization (from old code)"""
     try:
-        plt.figure(figsize=(12, 8))
+        #plt.figure(figsize=(12, 8))
         
         # Plot raw data
         plt.scatter(x, y, label="Fit Region Data", color="blue", s=20, alpha=0.7)
@@ -594,7 +615,7 @@ def plot_circle_fit(x, y, xc, yc, r, shift, cycle_idx, debug=False):
 
 def plot_final_circle_fit(x_raw, y_raw, x_fit, y_fit, xc, yc, r, cycle_idx, shift):
     """Plot final successful circle fit on top of all data"""
-    plt.figure(figsize=(12, 8))
+    #plt.figure(figsize=(12, 8))
     
     # Plot all raw data
     plt.scatter(x_raw, y_raw, label="All Data", color="gray", s=10, alpha=0.5)
