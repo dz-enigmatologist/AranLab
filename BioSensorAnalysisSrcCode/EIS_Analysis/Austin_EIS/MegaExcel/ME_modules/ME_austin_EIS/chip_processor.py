@@ -244,7 +244,7 @@ def compute_analysis(df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_arra
 
     # Assuming you've already called the function like this:
     deepta_results = deepta_analysis_functions(
-        df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_array, debug=True
+        df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_array, debug=False
     )
 
     # Extract all available results, including the new methods
