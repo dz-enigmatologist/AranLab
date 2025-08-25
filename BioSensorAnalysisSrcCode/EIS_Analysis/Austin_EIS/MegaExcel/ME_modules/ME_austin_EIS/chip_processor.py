@@ -65,7 +65,7 @@ def extract_conc_phase(raw_name):
 
 # --------------- CORE PROCESSING ---------------
 
-def process_chip_excel_only(chip_number, file_paths):
+def process_chip_excel_only(chip_number, file_paths,debug=False):
     if "cas" not in file_paths:
         print(f"[Chip {chip_number}] No CAS file found.")
         return []
@@ -114,7 +114,7 @@ def process_chip_excel_only(chip_number, file_paths):
             ph1 = cycle_df[ph_cols[0]].iloc[0] if ph_cols else None
 
             analysis_row = compute_analysis(
-                cycle_df, idx, time_per_cycle, cp1, ph1, freq_array[start:end], Z_array[start:end]
+                cycle_df, idx, time_per_cycle, cp1, ph1, freq_array[start:end], Z_array[start:end],debug
             )
 
             if analysis_row is None:
@@ -179,7 +179,7 @@ def write_chip_results_to_workbook(result_list, processed_chips_folder):
 
 # --------------- ANALYSIS LOGIC ---------------
 
-def compute_analysis(df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_array): 
+def compute_analysis(df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_array,debug=False): 
     try:
         x_raw = df["Rs"].to_numpy(dtype=float)
         y_raw = np.abs(df["X"].to_numpy(dtype=float))
@@ -244,7 +244,7 @@ def compute_analysis(df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_arra
 
     # Assuming you've already called the function like this:
     deepta_results = deepta_analysis_functions(
-        df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_array, debug=False
+        df, cycle_idx, time_per_cycle, cp1, ph1, freq_array, Z_array, debug
     )
 
     # Extract all available results, including the new methods
